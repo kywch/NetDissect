@@ -7,7 +7,6 @@ import numpy
 from scipy.misc import imread, imresize, imsave
 import visualize.expdir as expdir
 import visualize.bargraph as bargraph
-import settings
 import numpy as np
 # unit,category,label,score
 
@@ -23,18 +22,18 @@ def fix(s):
 
 
 
-def generate_html_summary(ds, layer, maxfeature=None, features=None, thresholds=None,
+def generate_html_summary(ds, layer, args, maxfeature=None, features=None, thresholds=None,
         imsize=None, imscale=72, tally_result=None,
         gridwidth=None, gap=3, limit=None, force=False, verbose=False):
-    ed = expdir.ExperimentDirectory(settings.OUTPUT_FOLDER)
+    ed = expdir.ExperimentDirectory(args.OUTPUT_FOLDER)
     print('Generating html summary %s' % ed.filename('html/%s.html' % expdir.fn_safe(layer)))
     # Grab tally stats
     # bestcat_pciou, name_pciou, score_pciou, _, _, _, _ = (tally_stats)
     if verbose:
         print('Sorting units by score.')
     if imsize is None:
-        imsize = settings.IMG_SIZE
-    top = np.argsort(maxfeature, 0)[:-1 - settings.TOPN:-1, :].transpose()
+        imsize = args.IMG_SIZE
+    top = np.argsort(maxfeature, 0)[:-1 - args.TOPN:-1, :].transpose()
     ed.ensure_dir('html','image')
     html = [html_prefix]
     rendered_order = []
@@ -54,22 +53,22 @@ def generate_html_summary(ds, layer, maxfeature=None, features=None, thresholds=
     html.append('<div class="layerinfo">')
     html.append('%d/%d units covering %d concepts with IoU &ge; %.2f' % (
         len([record for record in rendered_order
-            if float(record['score']) >= settings.SCORE_THRESHOLD]),
+            if float(record['score']) >= args.SCORE_THRESHOLD]),
         len(rendered_order),
         len(set(record['label'] for record in rendered_order
-            if float(record['score']) >= settings.SCORE_THRESHOLD)),
-        settings.SCORE_THRESHOLD))
+            if float(record['score']) >= args.SCORE_THRESHOLD)),
+        args.SCORE_THRESHOLD))
     html.append('</div>')
     html.append(html_sortheader)
     html.append('</div>')
 
     if gridwidth is None:
         gridname = ''
-        gridwidth = settings.TOPN
+        gridwidth = args.TOPN
         gridheight = 1
     else:
         gridname = '-%d' % gridwidth
-        gridheight = (settings.TOPN + gridwidth - 1) // gridwidth
+        gridheight = (args.TOPN + gridwidth - 1) // gridwidth
 
     html.append('<div class="unitgrid"') # Leave off > to eat spaces
     if limit is not None:
@@ -101,7 +100,7 @@ def generate_html_summary(ds, layer, maxfeature=None, features=None, thresholds=
                       col*(imsize+gap):col*(imsize+gap)+imsize,:] = vis
             imsave(ed.filename('html/' + imfn), tiled)
         # Generate the wrapper HTML
-        graytext = ' lowscore' if float(record['score']) < settings.SCORE_THRESHOLD else ''
+        graytext = ' lowscore' if float(record['score']) < args.SCORE_THRESHOLD else ''
         html.append('><div class="unit%s" data-order="%d %d %d">' %
                 (graytext, label_order, record['score-order'], unit + 1))
         html.append('<div class="unitlabel">%s</div>' % fix(record['label']))

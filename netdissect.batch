@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --job-name=netdissect
+#SBATCH --output=out_netdissect.sbatch_err
+#SBATCH --error=err_netdissect.sbatch_err
+#SBATCH --time=6:00:00
+#SBATCH --nodes=1
+#SBATCH --partition=gpu2
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks-per-node=13
+#SBATCH --mem=64000
+
+module load cuda/9.0
+module load Anaconda3/5.0.1
+source activate fastai
+
+python main.py
+

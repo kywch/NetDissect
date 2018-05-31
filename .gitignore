@@ -1,0 +1,19 @@
+# leave out downloaded dataset directory
+/dataset
+/zoo
+
+# leave out fastai link
+/fastai
+
+# leave out checkpoints
+*checkpoint*
+
+# leave out pycache
+*pycache*
+
+# leave out log directories
+/result
+
+# sbatch related 
+/*sbatch_out
+/*sbatch_err

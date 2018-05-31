@@ -5,7 +5,6 @@ import re
 import random
 import signal
 import csv
-import settings
 import numpy as np
 from collections import OrderedDict
 from scipy.misc import imread
@@ -81,10 +80,10 @@ class SegmentationData(AbstractSegmentation):
     each have a separate c_*.csv file describing a dense coding of labels.
     '''
 
-    def __init__(self, directory, categories=None, require_all=False):
+    def __init__(self, directory, index_file, categories=None, require_all=False):
         directory = os.path.expanduser(directory)
         self.directory = directory
-        with open(os.path.join(directory, settings.INDEX_FILE)) as f:
+        with open(os.path.join(directory, index_file)) as f:
             self.image = [decode_index_dict(r) for r in csv.DictReader(f)]
         with open(os.path.join(directory, 'category.csv')) as f:
             self.category = OrderedDict()

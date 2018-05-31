@@ -1,0 +1,32 @@
+#!/bin/bash
+#SBATCH --job-name=netdissect2
+#SBATCH --output=out_netdissect2.sbatch_out
+#SBATCH --error=err_netdissect2.sbatch_err
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --partition=gpu2
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks-per-node=13
+#SBATCH --mem=96000
+#SBATCH --reservation=deeplearning
+
+module load cuda/9.0
+module load Anaconda3/5.0.1
+source activate fastai
+
+python dissect.py resnet50_snapshots/checkpoint_001_07501.pth.tar result/checkpoint_001_07501
+python dissect.py resnet50_snapshots/checkpoint_001_08001.pth.tar result/checkpoint_001_08001
+python dissect.py resnet50_snapshots/checkpoint_001_08501.pth.tar result/checkpoint_001_08501
+python dissect.py resnet50_snapshots/checkpoint_001_09001.pth.tar result/checkpoint_001_09001
+python dissect.py resnet50_snapshots/checkpoint_001_09501.pth.tar result/checkpoint_001_09501
+python dissect.py resnet50_snapshots/checkpoint_001_10001.pth.tar result/checkpoint_001_10001
+python dissect.py resnet50_snapshots/checkpoint_001_10501.pth.tar result/checkpoint_001_10501
+python dissect.py resnet50_snapshots/checkpoint_001_11001.pth.tar result/checkpoint_001_11001
+python dissect.py resnet50_snapshots/checkpoint_001_11501.pth.tar result/checkpoint_001_11501
+python dissect.py resnet50_snapshots/checkpoint_001_12001.pth.tar result/checkpoint_001_12001
+python dissect.py resnet50_snapshots/checkpoint_001_12501.pth.tar result/checkpoint_001_12501
+python dissect.py resnet50_snapshots/checkpoint_001_13001.pth.tar result/checkpoint_001_13001
+python dissect.py resnet50_snapshots/checkpoint_001_13501.pth.tar result/checkpoint_001_13501
+python dissect.py resnet50_snapshots/checkpoint_001_14001.pth.tar result/checkpoint_001_14001
+
+

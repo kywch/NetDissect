@@ -4,7 +4,6 @@ from torch.autograd import Variable as V
 from scipy.misc import imresize
 import numpy as np
 import torch
-import settings
 import time
 import util.upsample as upsample
 import util.vecquantile as vecquantile
@@ -19,32 +18,33 @@ def hook_feature(module, input, output):
 
 class FeatureOperator:
 
-    def __init__(self):
-        if not os.path.exists(settings.OUTPUT_FOLDER):
-            os.makedirs(os.path.join(settings.OUTPUT_FOLDER, 'image'))
-        self.data = SegmentationData(settings.DATA_DIRECTORY, categories=settings.CATAGORIES)
-        self.loader = SegmentationPrefetcher(self.data,categories=['image'],once=True,batch_size=settings.BATCH_SIZE)
+    def __init__(self, args):
+        if not os.path.exists(args.OUTPUT_FOLDER):
+            os.makedirs(os.path.join(args.OUTPUT_FOLDER, 'image'))
+        self.data = SegmentationData(args.DATA_DIRECTORY, args.INDEX_FILE, categories=args.CATAGORIES)
+        self.loader = SegmentationPrefetcher(self.data,categories=['image'],once=True,batch_size=args.BATCH_SIZE)
         self.mean = [109.5388,118.6897,124.6901]
+        self.args = args
 
     def feature_extraction(self, model=None, memmap=True):
         loader = self.loader
         # extract the max value activaiton for each image
-        maxfeatures = [None] * len(settings.FEATURE_NAMES)
-        wholefeatures = [None] * len(settings.FEATURE_NAMES)
-        features_size = [None] * len(settings.FEATURE_NAMES)
-        features_size_file = os.path.join(settings.OUTPUT_FOLDER, "feature_size.npy")
+        maxfeatures = [None] * len(self.args.FEATURE_NAMES)
+        wholefeatures = [None] * len(self.args.FEATURE_NAMES)
+        features_size = [None] * len(self.args.FEATURE_NAMES)
+        features_size_file = os.path.join(self.args.OUTPUT_FOLDER, "feature_size.npy")
 
         if memmap:
             skip = True
-            mmap_files =  [os.path.join(settings.OUTPUT_FOLDER, "%s.mmap" % feature_name)  for feature_name in  settings.FEATURE_NAMES]
-            mmap_max_files = [os.path.join(settings.OUTPUT_FOLDER, "%s_max.mmap" % feature_name) for feature_name in settings.FEATURE_NAMES]
+            mmap_files =  [os.path.join(self.args.OUTPUT_FOLDER, "%s.mmap" % feature_name)  for feature_name in  self.args.FEATURE_NAMES]
+            mmap_max_files = [os.path.join(self.args.OUTPUT_FOLDER, "%s_max.mmap" % feature_name) for feature_name in self.args.FEATURE_NAMES]
             if os.path.exists(features_size_file):
                 features_size = np.load(features_size_file)
             else:
                 skip = False
             for i, (mmap_file, mmap_max_file) in enumerate(zip(mmap_files,mmap_max_files)):
                 if os.path.exists(mmap_file) and os.path.exists(mmap_max_file) and features_size[i] is not None:
-                    print('loading features %s' % settings.FEATURE_NAMES[i])
+                    print('loading features %s' % self.args.FEATURE_NAMES[i])
                     wholefeatures[i] = np.memmap(mmap_file, dtype=float,mode='r', shape=tuple(features_size[i]))
                     maxfeatures[i] = np.memmap(mmap_max_file, dtype=float, mode='r', shape=tuple(features_size[i][:2]))
                 else:
@@ -61,7 +61,7 @@ class FeatureOperator:
             print('extracting feature from batch %d / %d' % (batch_idx+1, num_batches))
             input = torch.from_numpy(input[:, ::-1, :, :].copy())
             input.div_(255.0 * 0.224)
-            if settings.GPU:
+            if self.args.GPU:
                 input = input.cuda()
             input_var = V(input,volatile=True)
             logit = model.forward(input_var)
@@ -88,8 +88,8 @@ class FeatureOperator:
                     else:
                         wholefeatures[i] = np.zeros(size_features)
             np.save(features_size_file, features_size)
-            start_idx = batch_idx*settings.BATCH_SIZE
-            end_idx = min((batch_idx+1)*settings.BATCH_SIZE, len(loader.indexes))
+            start_idx = batch_idx*self.args.BATCH_SIZE
+            end_idx = min((batch_idx+1)*self.args.BATCH_SIZE, len(loader.indexes))
             for i, feat_batch in enumerate(features_blobs):
                 if len(feat_batch.shape) == 4:
                     wholefeatures[i][start_idx:end_idx] = feat_batch
@@ -103,7 +103,7 @@ class FeatureOperator:
         return wholefeatures,maxfeatures
 
     def quantile_threshold(self, features, savepath=''):
-        qtpath = os.path.join(settings.OUTPUT_FOLDER, savepath)
+        qtpath = os.path.join(self.args.OUTPUT_FOLDER, savepath)
         if savepath and os.path.exists(qtpath):
             return np.load(qtpath)
         print("calculating quantile threshold")
@@ -120,21 +120,21 @@ class FeatureOperator:
             batch = features[i:i + batch_size]
             batch = np.transpose(batch, axes=(0, 2, 3, 1)).reshape(-1, features.shape[1])
             quant.add(batch)
-        ret = quant.readout(1000)[:, int(1000 * (1-settings.QUANTILE)-1)]
+        ret = quant.readout(1000)[:, int(1000 * (1-self.args.QUANTILE)-1)]
         if savepath:
             np.save(qtpath, ret)
         return ret
-        # return np.percentile(features,100*(1 - settings.QUANTILE),axis=axis)
+        # return np.percentile(features,100*(1 - args.QUANTILE),axis=axis)
 
     @staticmethod
-    def tally_job(args):
+    def tally_job(self, args):
         features, data, threshold, tally_labels, tally_units, tally_units_cat, tally_both, start, end = args
         units = features.shape[1]
-        size_RF = (settings.IMG_SIZE / features.shape[2], settings.IMG_SIZE / features.shape[3])
+        size_RF = (self.args.IMG_SIZE / features.shape[2], self.args.IMG_SIZE / features.shape[3])
         fieldmap = ((0, 0), size_RF, size_RF)
         pd = SegmentationPrefetcher(data, categories=data.category_names(),
-                                    once=True, batch_size=settings.TALLY_BATCH_SIZE,
-                                    ahead=settings.TALLY_AHEAD, start=start, end=end)
+                                    once=True, batch_size=self.args.TALLY_BATCH_SIZE,
+                                    ahead=self.args.TALLY_AHEAD, start=start, end=end)
         count = start
         start_time = time.time()
         last_batch_time = start_time
@@ -172,7 +172,7 @@ class FeatureOperator:
                     feature_map = features[img_index][unit_id]
                     if feature_map.max() > threshold[unit_id]:
                         mask = imresize(feature_map, (concept_map['sh'], concept_map['sw']), mode='F')
-                        #reduction = int(round(settings.IMG_SIZE / float(concept_map['sh'])))
+                        #reduction = int(round(args.IMG_SIZE / float(concept_map['sh'])))
                         #mask = upsample.upsampleL(fieldmap, feature_map, shape=(concept_map['sh'], concept_map['sw']), reduction=reduction)
                         indexes = np.argwhere(mask > threshold[unit_id])
 
@@ -190,7 +190,7 @@ class FeatureOperator:
 
 
     def tally(self, features, threshold, savepath=''):
-        csvpath = os.path.join(settings.OUTPUT_FOLDER, savepath)
+        csvpath = os.path.join(self.args.OUTPUT_FOLDER, savepath)
         if savepath and os.path.exists(csvpath):
             return load_csv(csvpath)
 
@@ -202,15 +202,15 @@ class FeatureOperator:
         tally_units_cat = np.zeros((units,len(categories)), dtype=np.float64)
         tally_labels = np.zeros(labels,dtype=np.float64)
 
-        if settings.PARALLEL > 1:
-            psize = int(np.ceil(float(self.data.size()) / settings.PARALLEL))
+        if self.args.PARALLEL > 1:
+            psize = int(np.ceil(float(self.data.size()) / self.args.PARALLEL))
             ranges = [(s, min(self.data.size(), s + psize)) for s in range(0, self.data.size(), psize) if
                       s < self.data.size()]
             params = [(features, self.data, threshold, tally_labels, tally_units, tally_units_cat, tally_both) + r for r in ranges]
-            threadpool = pool.ThreadPool(processes=settings.PARALLEL)
+            threadpool = pool.ThreadPool(processes=self.args.PARALLEL)
             threadpool.map(FeatureOperator.tally_job, params)
         else:
-            FeatureOperator.tally_job((features, self.data, threshold, tally_labels, tally_units, tally_units_cat, tally_both, 0, self.data.size()))
+            FeatureOperator.tally_job(self, (features, self.data, threshold, tally_labels, tally_units, tally_units_cat, tally_both, 0, self.data.size()))
 
         primary_categories = self.data.primary_categories_per_index()
         tally_units_cat = np.dot(tally_units_cat, self.data.labelcat.T)
