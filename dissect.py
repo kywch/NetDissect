@@ -69,7 +69,7 @@ fo = FeatureOperator(args)
 checkpoint = torch.load(args.MODEL_FILE)
 model = torchvision.models.__dict__[checkpoint["arch"]](num_classes=args.NUM_CLASSES)
 # DO print(checkpoint['state_dict']) 
-state_dict = {k[2:]: v for k,v in checkpoint['state_dict'].items()}
+state_dict = {k[(k.find(".")+1):]: v for k,v in checkpoint['state_dict'].items()}
 #state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()} 
 model.load_state_dict(state_dict)
 # setup a hook to extract unit info
